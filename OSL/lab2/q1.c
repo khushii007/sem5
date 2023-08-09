@@ -36,6 +36,9 @@ void ls_l(char *dir) {
             printf("\nstat error");
             continue;
         }
+        if(strcmp(".", entry->d_name) == 0 || strcmp("..", entry->d_name) == 0) //if directory is either . or ..
+            {continue;
+            }
         permissions(statbuf.st_mode);
         printf("    %s\n",entry->d_name);
     }   
