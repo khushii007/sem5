@@ -1,0 +1,303 @@
+Q1)
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define QUEUE_SIZE 4
+
+// Define the structure for the FIFO queue
+struct Queue {
+    int buffer[QUEUE_SIZE];
+    int front, rear, count;
+};
+
+// Initialize the queue
+void initializeQueue(struct Queue* queue) {
+    queue->front = 0;
+    queue->rear = -1;
+    queue->count = 0;
+}
+
+// Insert an item into the queue
+void enqueue(struct Queue* queue, int item) {
+    if (queue->count < QUEUE_SIZE) {
+        queue->rear = (queue->rear + 1) % QUEUE_SIZE;
+        queue->buffer[queue->rear] = item;
+        queue->count++;
+    }
+}
+
+// Remove an item from the queue
+int dequeue(struct Queue* queue) {
+    if (queue->count > 0) {
+        int item = queue->buffer[queue->front];
+        queue->front = (queue->front + 1) % QUEUE_SIZE;
+        queue->count--;
+        return item;
+    } else {
+        return -1; // Queue is empty
+    }
+}
+
+// Producer function
+void* producer(void* arg) {
+    struct Queue* queue = (struct Queue*)arg;
+
+    for (int i = 1; i <= 4; i++) {
+        enqueue(queue, i);
+        printf("Produced: %d\n", i);
+        sleep(1); // Simulate some work
+    }
+
+    pthread_exit(NULL);
+}
+
+// Consumer function
+void* consumer(void* arg) {
+    struct Queue* queue = (struct Queue*)arg;
+
+    for (int i = 0; i < 4; i++) {
+        int item = dequeue(queue);
+        if (item != -1) {
+            printf("Consumed: %d\n", item);
+        } else {
+            printf("Queue is empty.\n");
+        }
+        sleep(2); // Simulate some work
+    }
+
+    pthread_exit(NULL);
+}
+
+int main() {
+    struct Queue queue;
+    initializeQueue(&queue);
+
+    pthread_t producerThread, consumerThread;
+
+    // Create producer and consumer threads
+    pthread_create(&producerThread, NULL, producer, &queue);
+    pthread_create(&consumerThread, NULL, consumer, &queue);
+
+    // Wait for the threads to finish
+    pthread_join(producerThread, NULL);
+    pthread_join(consumerThread, NULL);
+
+    return 0;
+}
+In this program:
+	We define a struct Queue to represent the FIFO queue and implement initializeQueue, enqueue, and dequeue functions to manipulate the queue.
+	The producer function inserts integers from 1 to 4 into the queue with a simulated delay.
+	The consumer function removes integers from the queue and displays them with a simulated delay.
+	In the main function, we create two threads for the producer and consumer, respectively, and wait for them to finish using pthread_join.
+Compile this program using a C compiler that supports POSIX threads (e.g., gcc -o program program.c -lpthread) and run it to see the producer-consumer behavior.
+
+Q2)
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+int main() {
+    int pipefd[2]; // File descriptors for the pipe
+    pid_t child_pid;
+
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create a child process
+    child_pid = fork();
+
+    if (child_pid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    if (child_pid == 0) {
+        // Child process (consumer)
+
+        close(pipefd[1]); // Close the write end of the pipe
+
+        char buffer[100];
+        ssize_t num_bytes;
+
+        printf("Consumer: Reading from the pipe...\n");
+
+        // Read from the pipe
+        num_bytes = read(pipefd[0], buffer, sizeof(buffer));
+
+        if (num_bytes == -1) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Consumer: Read %zd bytes: %s\n", num_bytes, buffer);
+
+        close(pipefd[0]); // Close the read end of the pipe
+
+        exit(EXIT_SUCCESS);
+    } else {
+        // Parent process (producer)
+
+        close(pipefd[0]); // Close the read end of the pipe
+
+        char message[] = "Hello, Pipe!";
+
+        printf("Producer: Writing to the pipe...\n");
+
+        // Write to the pipe
+        ssize_t num_bytes = write(pipefd[1], message, strlen(message));
+
+        if (num_bytes == -1) {
+            perror("write");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Producer: Wrote %zd bytes: %s\n", num_bytes, message);
+
+        close(pipefd[1]); // Close the write end of the pipe
+
+        // Wait for the child process to complete
+        wait(NULL);
+
+        exit(EXIT_SUCCESS);
+    }
+}
+
+
+
+In this program:
+	We create a pipe using the pipe function, which returns two file descriptors: pipefd[0] for reading and pipefd[1] for writing.
+	We fork a child process to create two separate processes: the parent (producer) and the child (consumer).
+	In the parent process (producer), we close the read end of the pipe (pipefd[0]) since it will only write to the pipe. We then write a message to the pipe using the write function.
+	In the child process (consumer), we close the write end of the pipe (pipefd[1]) since it will only read from the pipe. We then read from the pipe using the read function and display the received message.
+Compile this program (e.g., gcc -o pipe_example pipe_example.c) and run it. You'll see the producer writing a message to the pipe, and the consumer reading and displaying that message.
+
+
+Q3)
+
+#include <stdio.h>
+#include <stdlib.h>
+
+// Define the maximum size of the queue
+#define MAX_SIZE 10
+
+// Declare a global array to represent the queue
+int queue[MAX_SIZE];
+
+// Initialize the front and rear of the queue
+int front = -1;
+int rear = -1;
+
+// Function to check if the queue is empty
+int isEmpty() {
+    return (front == -1 && rear == -1);
+}
+
+// Function to check if the queue is full
+int isFull() {
+    return (rear == MAX_SIZE - 1);
+}
+
+// Function to add an element to the queue (enqueue)
+void enqueue(int item) {
+    // Check if the queue is full
+    if (isFull()) {
+        printf("Queue is full. Cannot enqueue.\n");
+        return;
+    }
+    // If the queue is empty, initialize both front and rear
+    if (isEmpty()) {
+        front = rear = 0;
+    } else {
+        rear++; // Move the rear pointer to the next position
+    }
+    // Add the item to the rear of the queue
+    queue[rear] = item;
+    printf("Enqueued: %d\n", item);
+}
+
+int main() {
+    // Enqueue some elements to the queue
+    enqueue(10);
+    enqueue(20);
+    enqueue(30);
+
+    return 0;
+}
+
+Now, let's break down the code with comments for a beginner:
+	We start by including the necessary header files.
+	We define the maximum size of the queue using #define. You can change MAX_SIZE to set the maximum capacity of your queue.
+	We declare a global integer array queue to represent the queue.
+	Initialize the front and rear of the queue as -1 to indicate that the queue is initially empty.
+	The isEmpty() function checks if both the front and rear are -1, which means the queue is empty.
+	The isFull() function checks if the rear has reached the maximum index, indicating that the queue is full.
+	The enqueue() function is used to add an element to the queue. It first checks if the queue is full using the isFull() function.
+	If the queue is empty, both the front and rear are set to 0.
+	If the queue is not empty, the rear is incremented to point to the next available position.
+	The element is added to the queue array at the rear position.
+	In the main() function, we demonstrate the enqueue operation by adding three elements (10, 20, and 30) to the queue.
+Compile and run this program to see how elements are enqueued into the queue.
+
+
+
+Q4)
+#include <stdio.h>
+
+int main() {
+    int shelf = 0; // Initialize the shelf count to 0
+
+    while (1) { // Infinite loop for continuous production
+        if (shelf < 5) { // Check if the shelf is not overstocked (less than 5)
+            shelf++; // Add one item to the shelf
+            printf("Producer: Added 1 item. Current shelf count: %d\n", shelf);
+        } else {
+            printf("Producer: Shelf is full. Waiting...\n");
+        }
+    }
+
+    return 0;
+}
+
+Explanation:
+	We start by including the necessary header files.
+	We initialize the shelf variable to 0 to represent the number of items on the shelf.
+	We enter an infinite loop (while (1)) to continuously produce items.
+	Inside the loop, we check if the shelf is less than 5, which means there is space on the shelf to add more items.
+	If there is space, we increment the shelf by 1 to add one item and print a message indicating that an item has been added and the current shelf count.
+	If the shelf is full (reaches 5 items), we print a message indicating that the shelf is full and the producer is waiting.
+
+  
+consumer.c (Consumer Program):
+
+#include <stdio.h>
+
+int main() {
+    int shelf = 5; // Initialize the shelf count to 5
+
+    while (1) { // Infinite loop for continuous consumption
+        if (shelf > 0) { // Check if there are items on the shelf
+            shelf--; // Remove one item from the shelf
+            printf("Consumer: Removed 1 item. Current shelf count: %d\n", shelf);
+        } else {
+            printf("Consumer: Shelf is empty. Waiting...\n");
+            shelf = 5; // Refill the shelf when it's empty
+        }
+    }
+
+    return 0;
+}
+
+Explanation:
+	We start by including the necessary header files.
+	We initialize the shelf variable to 5 to represent the initial number of items on the shelf.
+	We enter an infinite loop (while (1)) to continuously consume items.
+	Inside the loop, we check if the shelf is greater than 0, which means there are items on the shelf to consume.
+	If there are items, we decrement the shelf by 1 to remove one item and print a message indicating that an item has been removed and the current shelf count.
+	If the shelf is empty (reaches 0 items), we print a message indicating that the shelf is empty, and the consumer is waiting. Additionally, we refill the shelf to its maximum capacity (5 items) to simulate restocking.
+Compile these programs separately (e.g., gcc producer.c -o producer and gcc consumer.c -o consumer) and run them in two separate terminal windows to observe the producer adding items to the shelf and the consumer removing items as needed.
+
