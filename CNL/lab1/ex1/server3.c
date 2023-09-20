@@ -22,6 +22,10 @@ int main() {
         clilen = sizeof(cliaddr);
         newsockfd = accept(sockfd, (struct sockaddr *)&cliaddr, (socklen_t *)&clilen);
         read(newsockfd, buffer, sizeof(buffer));
+        if(strcmp(buffer, "stop")==0) {
+            close(newsockfd);
+            break;
+        }
         printf("\nMessage from client: %s", buffer);
         write(newsockfd, buffer, sizeof(buffer));
         close(newsockfd);
